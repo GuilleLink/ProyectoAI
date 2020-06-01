@@ -17,6 +17,7 @@ class infoGame:
         self.fboard = []
         self.points = 0
         self.gamesPlayed = 0
+        self.maxDepth = 2
         #self.boardM = np.matrix()
 
 @sio.on('connect')
@@ -37,49 +38,37 @@ def disconnect():
     print("Disconnected")
 
 @sio.on('ready')
-def ready(server):
-    tiroValido = False    
+def ready(server): 
     Player_ID = server['player_turn_id']
     actualBoard = server['board']
 
-    validating_point_method(actualBoard, Player_ID)
+    #Throw minimax so the best play can be found
+    #Sending the board I get from the server
+    #Sending the depth and since it is "starting" maximizing is True
+    #Sending the player ID for a multiplying factor
+    bestScore, bestMove = checkBestMove(actualBoard, Player_ID)
 
-    #Para random playing
-    while (tiroValido == False):
-        #Para que escoja si es vertical u horizontal con 0 o 1
-        tdl = np.random.randint(0,2)
-        #Para que escoja la linea disponible a jugar
-        ndl = np.random.randint(0,30)
-        if(actualBoard[tdl][ndl]==99):
-            tiroValido = True
-        else:
-            tiroValido = False
-        
-    for filas in actualBoard:
-        for value in filas:
-            if Player_ID == 1:
-                #Un minimax donde se busque el mayor valor
-                if (value>0):
-                    infoGame.points += 1
-                #print("As player 1 positive points: " + str(infoGame.points))                   
-                pass
-            else:
-                if (value<0):
-                    infoGame.points += 1
-                #print("As player 2 negative points: " + str(infoGame.points))
-                #un minimax donde se busque el menor valor
-                pass
+    print("El mejor tiro es: ", bestMove)
+    print("Puntos realizados en este tiro = ", bestScore)    
+    
 
     sio.emit('play',{
         'player_turn_id':Player_ID,
         'tournament_id': infoGame.tournament_id,
         'game_id': server['game_id'],
-        'movement': (tdl, ndl)
+        #'movement': (tdl, ndl)
+        'movement': (bestMove)
     })
 
 def reset():
     row = np.ones(30) * 99
     infoGame.board = [np.ndarray.tolist(row), np.ndarray.tolist(row)]
+
+def checkWinner(server):
+    if Player_ID == server['winner_turn_id']:
+        return 1
+    else:
+        return -1
 
 @sio.on('finish')
 def finish(server):
@@ -87,7 +76,7 @@ def finish(server):
     Player_ID = server['player_turn_id']
     board = server['board']
 
-    draw_board(board)
+    
 
     if Player_ID == server['winner_turn_id']:
         print("Eres el ganador")
@@ -149,10 +138,11 @@ def validating_point_method(board, playerID):
             player2 = player2 + 1
 
     ## Aqui imprimimos los punteos de cada jugador
-    if (playerID == 1):
-        print("Punteo Jugador 1: ", player1)
-    if (playerID == 2):
-        print("Punteo Jugador 2: ", player2)
+    #if (playerID == 1):
+    #    print("Punteo Jugador 1: ", player1, "    ", contadorPuntos)
+    #if (playerID == 2):
+    #    print("Punteo Jugador 2: ", player2, "    ", contadorPuntos)    
+    return contadorPuntos
 
 
 def draw_board(board):
@@ -200,12 +190,156 @@ def draw_board(board):
                         pass
                 start += 1
     print(standard_board)
+        
 
-def poda_Alpha_Beta():
-    print("holi")
 
-def minimax(position, depth, maximizingPlayer):
-    print("Holi minimax")
+def checkBestMove(board, Player_ID):
+    bestScore = -1000
+    alpha = -1000
+    beta = 1000
+    for typeOfLine in range(len(board)):      
+        #line is the actual value of the line  
+        for line in range(len(board[typeOfLine])):
+            #If its available
+            if (board[typeOfLine][line] == 99):
+                board[typeOfLine][line] = 0
+                #Call to fun minimax
+                score = minimax(board, 0, True, Player_ID, alpha, beta)
+                board[typeOfLine][line] = 99                                    
+                if(score >= bestScore):
+                    bestScore = score
+                    bestMove = (typeOfLine, line)
+    return bestScore, bestMove
+
+
+
+
+def minimax(board, depth, maximizingPlayer, Player_ID, alpha, beta):
+    if (depth >= infoGame.maxDepth):
+        return board
+    #New board to check results
+    Changedboard = board
+    isScoring = False
+
+    if (Player_ID == 1):
+        multiplyingFactor = 1
+    elif (Player_ID == 2):
+        #If player No. 2 as the values are negative
+        #We multiply -1 so negatives becomes positive for minimax
+        #and positives become negatives
+        multiplyingFactor = -1
+
+    if (maximizingPlayer):
+        bestScore = -1000
+        #Checking every element of the board
+        for typeOfLine in range(len(Changedboard)):      
+            #line is the actual value of the line  
+            for line in range(len(Changedboard[typeOfLine])):
+                if (Changedboard[typeOfLine][line] == 99):
+                    pointsBefore = validating_point_method(Changedboard, Player_ID)
+                    Changedboard[typeOfLine][line] = 0
+                    pointsAfter = validating_point_method(Changedboard, Player_ID)                    
+                    score = (pointsAfter-pointsBefore) * multiplyingFactor
+                    if (score > 0 & score < 10):
+                        minimax(Changedboard, depth + 1, True, Player_ID, alpha, beta)   
+                    else:
+                        minimax(Changedboard, depth + 1, False, Player_ID, alpha, beta)                              
+                    Changedboard[typeOfLine][line] = 99                    
+                    bestScore = max(score, bestScore)
+                    alpha = max(alpha, score)
+                    if (beta <= alpha):
+                        break
+        return bestScore
+                    
+    elif (maximizingPlayer != True):
+        bestScore = 1000
+        #Checking every element of the board
+        for typeOfLine in range(len(Changedboard)):      
+            #line is the actual value of the line  
+            for line in range(len(Changedboard[typeOfLine])):
+                if (Changedboard[typeOfLine][line] == 99):
+                    pointsBefore = validating_point_method(Changedboard, Player_ID)
+                    Changedboard[typeOfLine][line] = 0
+                    pointsAfter = validating_point_method(Changedboard, Player_ID)                    
+                    minimax(Changedboard, depth + 1, True, Player_ID, alpha, beta)
+                    score = (pointsAfter-pointsBefore) * multiplyingFactor                    
+                    Changedboard[typeOfLine][line] = 99
+                    bestScore = min(score, bestScore)
+                    beta = min(beta, score)
+                    if (beta <= alpha):
+                        break
+        return bestScore
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #Starting with depth 0 at first iteration, if the depth of the tree
+    #reaches or surpasses this depth then it should return the best play
+    #or best move posible
+    #actualDepth = 0
+    #bestMove = board
+    #if (actualDepth >= depth):
+    #    print("Depth = ", actualDepth)
+    #    print(bestMove)
+    #    return bestMove
+#
+    #if (Player_ID == 1):
+    #    multiplyingFactor = 1
+    #elif (Player_ID == 2):
+    #    #If player No. 2 as the values are negative
+    #    #We multiply -1 so negatives becomes positive for minimax
+    #    #and positives become negatives
+    #    multiplyingFactor = -1
+#
+    ##Si es Max hace Max, sino hace Min
+    #if (maximizingPlayer):
+    #    Maximize(bestMove, depth + 1, False)
+#
+    ##elif (maximizingPlayer == False):
+#
+#
+    #pointsBefore = validating_point_method(board, Player_ID)
+    #difPoint = (validating_point_method(board, Player_ID) - pointsBefore)
+    ##Cierro un cuadro, o dos o el oponente cierra uno o dos
+    ##Posibilidad de agregar un score de +5 dependiendo cuantos turnos extra de o -5 dependiendo cuantos obtenga el rival
+    ##Con SM 13 V
+    ##If scoring you get another turn so you play again
+    ##Also check fot all the points you acumulate
+    #scoring = False
+    #acumulativePoints = 0
+    #acumulativeTurns = 0
+    #possibleScores = [1, 2, -1, -2, 0]
+    #if (maximizingPlayer):
+    #    maxScore = -10000
+    #    #for
 
 
 #def Maximum(State, Ply_num, Alpha): # Alpha-beta pruning function for taking care of Alpha values
@@ -252,26 +386,6 @@ def minimax(position, depth, maximizingPlayer):
 #        return Minimum_Score
 #
 #
-#def miniMax(State, Ply_num): # Function for the minimax algorithm
-#
-#        for i in range(State.Current.dimY):
-#            for j in range(State.Current.dimX):
-#                if State.Current.Mat[i][j] == ' ' and (j, i) not in State.children:
-#                    State.Make(j, i, True)
-#                    if Ply_num < 2:
-#                        return (i, j)
-#
-#        Minimum_Score = 1000
-#        i = 0
-#        j = 0
-#        for k, z in State.children.items():
-#            Result = Max(z, Ply_num - 1, Minimum_Score)
-#            if Minimum_Score > Result:
-#                Minimum_Score = Result
-#                i = k[0]
-#                j = k[1]
-#
-#        return (i, j)
 
 infoGame = infoGame()
 infoGame.username = input("User: \n")
