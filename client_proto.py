@@ -16,7 +16,7 @@ class infoGame:
         self.game_id = ""
         self.points = 0
         self.gamesPlayed = 0
-        self.maxDepth = 2
+        self.maxDepth = 1
 
 @sio.on('connect')
 def onConnect():
@@ -122,6 +122,10 @@ def minimax(board, move, depth, isMaximizing, playerID, alpha, beta, pointsOnTur
 
     if (depth == infoGame.maxDepth or 99 not in np.asarray(board).reshape(-1)):
         scoreOnBoardPlay = pointsOnTurn + acumulativePoints
+        if (scoreOnBoardPlay > 0):
+            print("I SCORED:" , scoreOnBoardPlay)
+        if (scoreOnBoardPlay < 0):
+            print("YOU SCORED:" , scoreOnBoardPlay)
         return scoreOnBoardPlay
 
     board, _ = tryMove(board, (move[0], move[1]), idPlayerPlaying, IPlay)
@@ -151,7 +155,7 @@ def minimax(board, move, depth, isMaximizing, playerID, alpha, beta, pointsOnTur
                     _, VerifySpotScore = tryMove(board, (horVer, line), idPlayerPlaying, IPlay)
                     VerifySpotScore = VerifySpotScore
                     if (VerifySpotScore>0):
-                        print("I MOVED", move, "YOU SCORED", VerifySpotScore)                        
+                        #print("I MOVED", move, "YOU SCORED", VerifySpotScore)                        
                         score = minimax(board, (horVer, line), depth + 1, False, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints-VerifySpotScore)
                     else:
                         score = minimax(board, (horVer, line), depth + 1, True, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints+VerifySpotScore)
@@ -222,12 +226,21 @@ def tryMove(board, move, playerID, playerPoints):
 
     points = pointMoved - pointBeforeMove
 
-    if(not playerPoints):
+    if(not playerPoints):        
+        point = points * -1
+        print("O    POINTS BEFORE:", pointBeforeMove)
+        print("O    POINTS AFTER:", pointMoved)
+        print("O    PLAYER1:", player1)
+        print("O    PLAYER2:", player2)
+        print("O    POINTS:", points)
+
+
+    if(playerPoints):
         print("POINTS BEFORE:", pointBeforeMove)
         print("POINTS AFTER:", pointMoved)
         print("PLAYER1:", player1)
         print("PLAYER2:", player2)
-        point = points * -1
+        print("POINTS:", points)
 
     return newBoard, points
 
