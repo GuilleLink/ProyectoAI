@@ -136,9 +136,9 @@ def minimax(board, move, depth, isMaximizing, playerID, alpha, beta, pointsOnTur
                 if board[horVer][line] == 99:
                     _, VerifySpotScore = tryMove(board, (horVer, line), idPlayerPlaying, IPlay)                                        
                     if (VerifySpotScore>0):                
-                        #print("PREVIOUS MOVE:  ", move,"  NOW I MOVE:   ", (horVer, line), "  I  SCORE   ", VerifySpotScore) 
+                        print("PREVIOUS MOVE:  ", move,"  NOW I MOVE:   ", (horVer, line), "  I  SCORE   ", VerifySpotScore)
                         score = minimax(board, (horVer, line), depth + 1, True, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints+VerifySpotScore)
-                    else:                       
+                    else:
                         score = minimax(board, (horVer, line), depth + 1, False, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints+VerifySpotScore)
                     bestScore = max(score, bestScore)
                     alpha = max(alpha, score)
@@ -154,9 +154,9 @@ def minimax(board, move, depth, isMaximizing, playerID, alpha, beta, pointsOnTur
                 if board[horVer][line] == 99:
                     _, VerifySpotScore = tryMove(board, (horVer, line), idPlayerPlaying, IPlay)
                     VerifySpotScore = VerifySpotScore
-                    if (VerifySpotScore>0):
-                        #print("I MOVED", move, "YOU SCORED", VerifySpotScore)                        
-                        score = minimax(board, (horVer, line), depth + 1, False, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints-VerifySpotScore)
+                    if (VerifySpotScore<0):
+                        print("I MOVED", move, "YOU SCORED", VerifySpotScore)                        
+                        score = minimax(board, (horVer, line), depth + 1, False, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints+VerifySpotScore)
                     else:
                         score = minimax(board, (horVer, line), depth + 1, True, idPlayerPlaying, alpha, beta, VerifySpotScore, acumulativePoints+VerifySpotScore)
                     bestScore = min(score, bestScore)
@@ -226,21 +226,8 @@ def tryMove(board, move, playerID, playerPoints):
 
     points = pointMoved - pointBeforeMove
 
-    if(not playerPoints):        
-        point = points * -1
-        print("O    POINTS BEFORE:", pointBeforeMove)
-        print("O    POINTS AFTER:", pointMoved)
-        print("O    PLAYER1:", player1)
-        print("O    PLAYER2:", player2)
-        print("O    POINTS:", points)
-
-
-    if(playerPoints):
-        print("POINTS BEFORE:", pointBeforeMove)
-        print("POINTS AFTER:", pointMoved)
-        print("PLAYER1:", player1)
-        print("PLAYER2:", player2)
-        print("POINTS:", points)
+    if(not playerPoints):     
+        points = points * -1
 
     return newBoard, points
 
