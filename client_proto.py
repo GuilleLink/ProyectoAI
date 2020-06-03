@@ -72,8 +72,8 @@ def ready(server):
     bestMove = checkBestMove(actualBoard, Player_ID)
 
     actualBoard[bestMove[0]][bestMove[1]] = 0
-    nB = draw_board2(actualBoard)
-    print(nB)
+    #nB = draw_board2(actualBoard)
+    #print(nB)
     print("El mejor tiro es: ", bestMove)
     print("Tiempo para tirar: %s" % (time.time() - startTime))
     
@@ -85,15 +85,135 @@ def ready(server):
         'movement': (bestMove)
     })
 
-
 def checkBestMove(playingBoard, playerID):
+    bestScore = -1000
+    tiedMoves = []
+    for horVer in range(len(playingBoard)):
+        for line in range(len(playingBoard[horVer])):
+            if playingBoard[horVer][line] == 99:
+                VerifySpotScore = tryMove(playingBoard, (horVer, line), playerID)
+                playingBoard[horVer][line] = 99
+                if (VerifySpotScore > 0):
+                    score = minimax(playingBoard, (horVer, line), 0, True, playerID, -1000, 1000, VerifySpotScore)
+                else:
+                    score = minimax(playingBoard, (horVer, line), 0, False, playerID, -1000, 1000, VerifySpotScore)
+                if (score > bestScore):
+                    bestScore = score
+                    tiedMoves.clear()
+                if (score >= bestScore):
+                    tiedMoves.append((horVer,line))
     
+    print(tiedMoves)
+    
+    return tiedMoves[np.random.randint(len(tiedMoves))]
 
 
 
+def minimax(board, move, depth, isMaximizing, playerID, alpha, beta, acumulativePoints):
+
+    if (depth == infoGame.maxDepth):
+        scoreOnBoardPlay = tryMove(board, move, playerID)
+        return scoreOnBoardPlay
+
+    if (isMaximizing):
+        bestScore = -1000
+        for horVer in range(len(board)):
+            for line in range(len(board[horVer])):
+                if board[horVer][line] == 99:                    
+                    if (acumulativePoints>0):
+                        score = minimax(board, (horVer, line), depth + 1, True, playerID, alpha, beta, acumulativePoints)
+                    else:
+                        acumulativePoints = tryMove(board, (horVer, line), playerID)
+                        board[horVer][line] = 99
+                        score = minimax(board, (horVer, line), depth + 1, False, playerID, alpha, beta, acumulativePoints)
+
+                    bestScore = max(score, bestScore)
+                    alpha = max(alpha, score)
+                    if beta <= alpha:
+                        break
+
+        return bestScore
+
+    if (not isMaximizing):
+        bestScore = -1000
+        for horVer in range(len(board)):
+            for line in range(len(board[horVer])):
+                if board[horVer][line] == 99:
+                    if (acumulativePoints<0):
+                        score = minimax(board, (horVer, line), depth + 1, False, playerID, alpha, beta, acumulativePoints)
+                    else:
+                        acumulativePoints = tryMove(board, (horVer, line), playerID)
+                        board[horVer][line] = 99
+                        score = minimax(board, (horVer, line), depth + 1, True, playerID, alpha, beta, acumulativePoints)
+
+                    bestScore = min(score, bestScore)
+                    beta = min(beta, score)
+                    if beta <= alpha:
+                        break
+
+        return bestScore
+
+def tryMove(board, move, playerID):
+    N=6
+    EMPTY = 99
+    acumulador = 0
+    contador = 0
+    
+    pointBeforeMove = 0
+    pointMoved = 0
+
+    player1A = 0
+    player2A = 0
+
+    player1B = 0
+    player2B = 0
+
+    FILLEDP11 = 1
+    FILLEDP12 = 2
+    FILLEDP21 = -1
+    FILLEDP22 = -2
+
+    newBoard = list(map(list, board))
+
+    for i in range(len(board[0])):
+        if ((i + 1) % N) != 0:
+            if board[0][i] != EMPTY and board[0][i + 1] != EMPTY and board[1][contador + acumulador] != EMPTY and board[1][contador + acumulador + 1] != EMPTY:
+                pointBeforeMove = pointBeforeMove + 1
+            acumulador = acumulador + N
+        else:
+            contador = contador + 1
+            acumulador = 0    
+
+    acumulador = 0
+    contador = 0
+    newBoard[move[0]][move[1]] = 0
+
+    for i in range(len(newBoard[0])):
+        if ((i + 1) % N) != 0:
+            if newBoard[0][i] != EMPTY and newBoard[0][i + 1] != EMPTY and newBoard[1][contador + acumulador] != EMPTY and newBoard[1][contador + acumulador + 1] != EMPTY:
+                pointMoved = pointMoved + 1
+            acumulador = acumulador + N
+        else:
+            contador = contador + 1
+            acumulador = 0  
+
+    if  pointMoved > pointBeforeMove:
+        if playerID == 1:
+            if (pointMoved - pointBeforeMove) == 2:
+                board[move[0]][move[1]] = FILLEDP12
+            elif (pointMoved - pointBeforeMove) == 1:
+                board[move[0]][move[1]] = FILLEDP11
+        elif playerID == 2:
+            if (pointMoved - pointBeforeMove) == 2:
+                board[move[0]][move[1]] = FILLEDP22
+            elif (pointMoved - pointBeforeMove) == 1:
+                board[move[0]][move[1]] = FILLEDP21
 
 
+    points = pointMoved - pointBeforeMove
 
+    #return (board, pointsMade) if isMaximizing else (board, (-1) * (pointsMade))
+    return points
 
 
 
