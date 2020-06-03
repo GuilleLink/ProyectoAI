@@ -5,6 +5,7 @@
 
 import socketio
 import numpy as np
+import time
 
 sio = socketio.Client()
 
@@ -13,12 +14,9 @@ class infoGame:
         self.username = ""
         self.tournament_id = ""
         self.game_id = ""
-        self.board = []
-        self.fboard = []
         self.points = 0
         self.gamesPlayed = 0
         self.maxDepth = 2
-        #self.boardM = np.matrix()
 
 @sio.on('connect')
 def onConnect():
@@ -37,42 +35,8 @@ def conn_error():
 def disconnect():
     print("Disconnected")
 
-@sio.on('ready')
-def ready(server): 
-    Player_ID = server['player_turn_id']
-    actualBoard = server['board']
-
-    #Throw minimax so the best play can be found
-    #Sending the board I get from the server
-    #Sending the depth and since it is "starting" maximizing is True
-    #Sending the player ID for a multiplying factor
-    bestScore, bestMove = checkBestMove(actualBoard, Player_ID)
-
-    print("El mejor tiro es: ", bestMove)
-    print("Puntos realizados en este tiro = ", bestScore)    
-    
-
-    sio.emit('play',{
-        'player_turn_id':Player_ID,
-        'tournament_id': infoGame.tournament_id,
-        'game_id': server['game_id'],
-        #'movement': (tdl, ndl)
-        'movement': (bestMove)
-    })
-
-def reset():
-    row = np.ones(30) * 99
-    infoGame.board = [np.ndarray.tolist(row), np.ndarray.tolist(row)]
-
-def checkWinner(server):
-    if Player_ID == server['winner_turn_id']:
-        return 1
-    else:
-        return -1
-
 @sio.on('finish')
 def finish(server):
-    reset()
     Player_ID = server['player_turn_id']
     board = server['board']
 
@@ -94,181 +58,814 @@ def finish(server):
         'player_turn_id': Player_ID
     })
 
-def validating_point_method(board, playerID):
-    N=6
-    EMPTY = 99
-    acumulador = 0
-    contador = 0
-    contadorPuntos = 0
+@sio.on('ready')
+def ready(server): 
+    Player_ID = server['player_turn_id']
+    actualBoard = server['board']
 
-    for i in range(len(board[0])):
-        if ((i + 1) % N) != 0:
-            if board[0][i] != EMPTY and board[0][i + 1] != EMPTY and board[1][contador + acumulador] != EMPTY and board[1][contador + acumulador + 1] != EMPTY:
-                contadorPuntos = contadorPuntos + 1
-            acumulador = acumulador + N
-        else:
-            contador = contador + 1
-            acumulador = 0
+    #Throw minimax so the best play can be found
+    #Sending the board I get from the server
+    #Sending the depth and since it is "starting" maximizing is True
+    #Sending the player ID for a multiplying factor
+    startTime = time.time()
 
-    player1 = 0
-    player2 = 0
-    FILLEDP11 = 1
-    FILLEDP12 = 2
-    FILLEDP21 = -1
-    FILLEDP22 = -2
+    bestMove = checkBestMove(actualBoard, Player_ID)
 
-    for i in range(len(board[0])):
-        if board[0][i] == FILLEDP12:
-            player1 = player1 + 2
-        elif board[0][i] == FILLEDP11:
-            player1 = player1 + 1
-        elif board[0][i] == FILLEDP22:
-            player2 = player2 + 2
-        elif board[0][i] == FILLEDP21:
-            player2 = player2 + 1
+    actualBoard[bestMove[0]][bestMove[1]] = 0
+    nB = draw_board2(actualBoard)
+    print(nB)
+    print("El mejor tiro es: ", bestMove)
+    print("Tiempo para tirar: %s" % (time.time() - startTime))
+    
 
-    for j in range(len(board[1])):
-        if board[1][j] == FILLEDP12:
-            player1 = player1 + 2
-        elif board[1][j] == FILLEDP11:
-            player1 = player1 + 1
-        elif board[1][j] == FILLEDP22:
-            player2 = player2 + 2
-        elif board[1][j] == FILLEDP21:
-            player2 = player2 + 1
-
-    ## Aqui imprimimos los punteos de cada jugador
-    #if (playerID == 1):
-    #    print("Punteo Jugador 1: ", player1, "    ", contadorPuntos)
-    #if (playerID == 2):
-    #    print("Punteo Jugador 2: ", player2, "    ", contadorPuntos)    
-    return contadorPuntos
+    sio.emit('play',{
+        'player_turn_id':Player_ID,
+        'tournament_id': infoGame.tournament_id,
+        'game_id': server['game_id'],
+        'movement': (bestMove)
+    })
 
 
-def draw_board(board):
-    standard_board = [
-        ['.', '.', '.', '.', '.', '.'],
-        [' ', ' ', ' ', ' ', ' ', ' '],
-        ['.', '.', '.', '.', '.', '.'],
-        [' ', ' ', ' ', ' ', ' ', ' '],
-        ['.', '.', '.', '.', '.', '.'],
-        [' ', ' ', ' ', ' ', ' ', ' '],
-        ['.', '.', '.', '.', '.', '.'],
-        [' ', ' ', ' ', ' ', ' ', ' '],
-        ['.', '.', '.', '.', '.', '.'],
-        [' ', ' ', ' ', ' ', ' ', ' '],
-        ['.', '.', '.', '.', '.', '.'],
-    ]
-
-    for i in range(0,len(board)):
-        if (i==0): 
-            acumulador = 0   
-            start = 0
-            end = len(board[i])      
-            N = 6
-            for j in board[i]:
-                if (j != 99):
-                    if (((board[i].index(j, start, end)) % N) == 0) & (board[i].index(j, start, end) != 0):
-                        acumulador +=1
-                    try:
-                        standard_board[acumulador*2][(board[i].index(j, start, end)) % N] = '._'
-                    except:
-                        pass                    
-                start += 1
-        if (i==1):
-            acumulador = 0   
-            start = 0
-            end = len(board[i])      
-            N = 6
-            for j in board[i]:
-                if (j != 99):
-                    if (((board[i].index(j, start, end)) % N) == 0) & (board[i].index(j, start, end) != 0):
-                        acumulador +=1
-                    try:
-                        standard_board[(acumulador*2)+1][(board[i].index(j, start, end) +1) % N] = '|'
-                    except:
-                        pass
-                start += 1
-    print(standard_board)
-        
-
-
-def checkBestMove(board, Player_ID):
-    bestScore = -1000
-    alpha = -1000
-    beta = 1000
-    for typeOfLine in range(len(board)):      
-        #line is the actual value of the line  
-        for line in range(len(board[typeOfLine])):
-            #If its available
-            if (board[typeOfLine][line] == 99):
-                board[typeOfLine][line] = 0
-                #Call to fun minimax
-                score = minimax(board, 0, True, Player_ID, alpha, beta)
-                board[typeOfLine][line] = 99                                    
-                if(score >= bestScore):
-                    bestScore = score
-                    bestMove = (typeOfLine, line)
-    return bestScore, bestMove
+def checkBestMove(playingBoard, playerID):
+    
 
 
 
 
-def minimax(board, depth, maximizingPlayer, Player_ID, alpha, beta):
-    if (depth >= infoGame.maxDepth):
-        return board
-    #New board to check results
-    Changedboard = board
-    isScoring = False
 
-    if (Player_ID == 1):
-        multiplyingFactor = 1
-    elif (Player_ID == 2):
-        #If player No. 2 as the values are negative
-        #We multiply -1 so negatives becomes positive for minimax
-        #and positives become negatives
-        multiplyingFactor = -1
 
-    if (maximizingPlayer):
-        bestScore = -1000
-        #Checking every element of the board
-        for typeOfLine in range(len(Changedboard)):      
-            #line is the actual value of the line  
-            for line in range(len(Changedboard[typeOfLine])):
-                if (Changedboard[typeOfLine][line] == 99):
-                    pointsBefore = validating_point_method(Changedboard, Player_ID)
-                    Changedboard[typeOfLine][line] = 0
-                    pointsAfter = validating_point_method(Changedboard, Player_ID)                    
-                    score = (pointsAfter-pointsBefore) * multiplyingFactor
-                    if (score > 0 & score < 10):
-                        minimax(Changedboard, depth + 1, True, Player_ID, alpha, beta)   
-                    else:
-                        minimax(Changedboard, depth + 1, False, Player_ID, alpha, beta)                              
-                    Changedboard[typeOfLine][line] = 99                    
-                    bestScore = max(score, bestScore)
-                    alpha = max(alpha, score)
-                    if (beta <= alpha):
-                        break
-        return bestScore
-                    
-    elif (maximizingPlayer != True):
-        bestScore = 1000
-        #Checking every element of the board
-        for typeOfLine in range(len(Changedboard)):      
-            #line is the actual value of the line  
-            for line in range(len(Changedboard[typeOfLine])):
-                if (Changedboard[typeOfLine][line] == 99):
-                    pointsBefore = validating_point_method(Changedboard, Player_ID)
-                    Changedboard[typeOfLine][line] = 0
-                    pointsAfter = validating_point_method(Changedboard, Player_ID)                    
-                    minimax(Changedboard, depth + 1, True, Player_ID, alpha, beta)
-                    score = (pointsAfter-pointsBefore) * multiplyingFactor                    
-                    Changedboard[typeOfLine][line] = 99
-                    bestScore = min(score, bestScore)
-                    beta = min(beta, score)
-                    if (beta <= alpha):
-                        break
-        return bestScore
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#def checkBestMove(server_board, Player_ID):
+#    bestScore = -10000
+#    tiedMoves = {}
+#    for typeOfPlay in range(len(server_board)):
+#        for line in range(len(server_board[typeOfPlay])):
+#            if (server_board[typeOfPlay][line] == 99):
+#                #AI player                
+#                score = minimax(server_board, (typeOfPlay, line), 0, False, Player_ID, -1000, 1000)
+#
+#
+#                if (score > bestScore):
+#                    bestScore = score
+#                    tiedMoves.clear()
+#                if (score == bestScore):
+#                    bestMove = (typeOfPlay, line)
+#                    tiedMoves[bestMove] = [bestScore]
+#
+#    keys = list(tiedMoves.keys())
+#    bestMove = keys[np.random.randint(0, len(keys))]
+#    bestScore = tiedMoves[bestMove]
+#    print("BESTMOVE:     ", bestMove)
+#    print("BESTSCORE:    ", bestScore)
+#    return bestMove
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#def minimax(board, move,  depth, isMaximizing, Player_ID, alpha, beta):
+#
+#    currentPlayerPlayingID = Player_ID if isMaximizing else (Player_ID%2) + 1
+#    _, point = movement_points(board, move, currentPlayerPlayingID, not isMaximizing)
+#
+#    if (depth == infoGame.maxDepth or 99 not in np.asarray(board).reshape(-1)):
+#        _, score = movement_points(board, move, Player_ID, isMaximizing)
+#        return score
+#
+#    board, _ = movement_points(board, move, currentPlayerPlayingID, isMaximizing)
+#
+#    if (isMaximizing):
+#        bestScore = -10000
+#        for typeOfPlay in range(len(board)):
+#            for line in range(len(board[typeOfPlay])):
+#                if (board[typeOfPlay][line] == 99):
+#                    score = minimax(board, (typeOfPlay, line), depth + 1, False, currentPlayerPlayingID, alpha, beta)
+#                    bestScore = max(score, bestScore)
+#                    alpha = max(alpha, score)
+#
+#                    if beta <= alpha:
+#                        break
+#
+#        board[move[0]][move[1]] = 99
+#        return bestScore
+#
+#
+#
+#    else:
+#        bestScore = 10000
+#        for typeOfPlay in range(len(board)):
+#            for line in range(len(board[typeOfPlay])):
+#                if (board[typeOfPlay][line] == 99):
+#                    score = minimax(board, (typeOfPlay, line), depth + 1, True, currentPlayerPlayingID, alpha, beta)                    
+#                    bestScore = min(score, bestScore)
+#                    beta = min(beta, score)
+#                    if beta <= alpha:
+#                        break
+#
+#        board[move[0]][move[1]] = 99
+#        return bestScore
+#
+#
+#
+#
+#
+#
+#
+#def movement_points(board, move, playerID, isMaximizing):
+#    N=6
+#    EMPTY = 99
+#    acumulador = 0
+#    contador = 0
+#    
+#    pointBeforeMove = 0
+#    pointMoved = 0
+#
+#    player1 = 0
+#    player2 = 0
+#    FILLEDP11 = 1
+#    FILLEDP12 = 2
+#    FILLEDP21 = -1
+#    FILLEDP22 = -2
+#
+#    newBoard = list(map(list, board))
+#
+#    for i in range(len(board[0])):
+#        if ((i + 1) % N) != 0:
+#            if board[0][i] != EMPTY and board[0][i + 1] != EMPTY and board[1][contador + acumulador] != EMPTY and board[1][contador + acumulador + 1] != EMPTY:
+#                pointBeforeMove = pointBeforeMove + 1
+#            acumulador = acumulador + N
+#        else:
+#            contador = contador + 1
+#            acumulador = 0    
+#
+#    acumulador = 0
+#    contador = 0
+#    newBoard[move[0]][move[1]] = 0
+#
+#    for i in range(len(newBoard[0])):
+#        if ((i + 1) % N) != 0:
+#            if newBoard[0][i] != EMPTY and newBoard[0][i + 1] != EMPTY and newBoard[1][contador + acumulador] != EMPTY and newBoard[1][contador + acumulador + 1] != EMPTY:
+#                pointMoved = pointMoved + 1
+#            acumulador = acumulador + N
+#        else:
+#            contador = contador + 1
+#            acumulador = 0  
+#
+#    if pointMoved > pointBeforeMove:
+#        if playerID == 1:
+#            if (pointMoved - pointBeforeMove) == 2:
+#                board[move[0]][move[1]] = FILLEDP12
+#            elif (pointMoved - pointBeforeMove) == 1:
+#                board[move[0]][move[1]] = FILLEDP11
+#        elif playerID == 2:
+#            if (pointMoved - pointBeforeMove) == 2:
+#                board[move[0]][move[1]] = FILLEDP22
+#            elif (pointMoved - pointBeforeMove) == 1:
+#                board[move[0]][move[1]] = FILLEDP21
+#
+#    pointsMade = pointMoved-pointBeforeMove
+#
+#    return (board, pointsMade) if isMaximizing else (board, (-1) * (pointsMade))
+#
+#
+#
+#def draw_board2(board):
+#    resultado = ''
+#    acumulador = 0
+#
+#    for i in range(int(len(board[0])/5)):
+#        if board[0][i] == 99:
+#            resultado = resultado + '*   '
+#        else:
+#            resultado = resultado + '* - '
+#        if board[0][i+6] == 99:
+#            resultado = resultado + '*   '
+#        else:
+#            resultado = resultado + '* - '
+#        if board[0][i+12] == 99:
+#            resultado = resultado + '*   '
+#        else:
+#            resultado = resultado + '* - '
+#        if board[0][i+18] == 99:
+#            resultado = resultado + '*   '
+#        else:
+#            resultado = resultado + '* - '
+#        if board[0][i+24] == 99:
+#            resultado = resultado + '*   *\n'
+#        else:
+#            resultado = resultado + '* - *\n'
+#
+#        if i != 5:
+#            for j in range(int(len(board[1])/5)):
+#                if board[1][j + acumulador] == 99:
+#                    resultado = resultado + '    '
+#                else:
+#                    resultado = resultado + '|   '
+#            acumulador = acumulador + 6
+#            resultado = resultado + '\n'
+#
+#    return resultado
+#
+#
+#def CheckPlayersScore(board):
+#    N=6
+#    EMPTY = 99
+#    acumulador = 0
+#    contador = 0
+#    contadorPuntos = 0
+#
+#    for i in range(len(board[0])):
+#        if ((i + 1) % N) != 0:
+#            if board[0][i] != EMPTY and board[0][i + 1] != EMPTY and board[1][contador + acumulador] != EMPTY and board[1][contador + acumulador + 1] != EMPTY:
+#                contadorPuntos = contadorPuntos + 1
+#            acumulador = acumulador + N
+#        else:
+#            contador = contador + 1
+#            acumulador = 0
+#
+#    player1 = 0
+#    player2 = 0
+#    FILLEDP11 = 1
+#    FILLEDP12 = 2
+#    FILLEDP21 = -1
+#    FILLEDP22 = -2
+#
+#    for i in range(len(board)):
+#        for j in range(len(board[i])):
+#            if board[i][j] == FILLEDP12:
+#                player1 = player1 + 2
+#            elif board[i][j] == FILLEDP11:
+#                player1 = player1 + 1
+#            elif board[i][j] == FILLEDP22:
+#                player2 = player2 + 2
+#            elif board[i][j] == FILLEDP21:
+#                player2 = player2 + 1
+#
+#    # Aqui imprimimos los punteos de cada jugador
+#    print("Punteo Jugador 1: ", player1, "    ", contadorPuntos)
+#    print("Punteo Jugador 2: ", player2, "    ", contadorPuntos)    
+
+
+
+
+
+
+#def checkBestMove(board, Player_ID):
+#    bestScore = -1000
+#    tiedMoves = {}
+#    tied = False
+#    for typeOfLine in range(len(board)):
+#        for line in range(len(board[typeOfLine])):
+#            #If its available
+#            #Try to play and apply minimax
+#            if (board[typeOfLine][line] == 99):
+#                #Call to fun minimax
+#                board[typeOfLine][line] = 0
+#                score = minimax(board, 0, False, Player_ID, -1000, 1000, 0)
+#                board[typeOfLine][line] = 99
+#                print("EXITING MINIMAX:    ", score)
+#                if(score > bestScore):
+#                    print("NEW BEST SCORE:  ", score)
+#                    bestScore = score
+#                    bestMove = (typeOfLine, line)
+#                    print("NEW BEST MOVE:  ", bestMove)
+#                    tiedMoves.clear()
+#                    print("CLEARED:   \n", tiedMoves)
+#                    tied = False
+#                if(score == bestScore):
+#                    bestMove = (typeOfLine, line)
+#                    tiedMoves[bestMove] = [bestScore]
+#                    print("NEW BEST SCORE(TIED):  ", bestScore)
+#                    print("NEW BEST MOVE(TIED):  ", bestMove)
+#                    tied = True
+#    if (tied):
+#        keys = list(tiedMoves.keys())
+#        bestMove = keys[np.random.randint(0, len(keys))]
+#        print("NEW BEST SCORE(ANS TIED):  ", bestScore)
+#        print("NEW BEST MOVE(ANS TIED):  ", bestMove)
+#        return bestScore, bestMove
+#    else:
+#        print("NEW BEST SCORE(ANSWER):  ", bestScore)
+#        print("NEW BEST MOVE(ANSWER):  ", bestMove)
+#        return bestScore, bestMove
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#def validating_point_method(board):
+#    N=6
+#    EMPTY = 99
+#    FILL = 0
+#    acumulador = 0
+#    contador = 0
+#    contadorPuntos = 0
+#    player1 = 0
+#    player2 = 0
+#    FILLEDP11 = 1
+#    FILLEDP12 = 2
+#    FILLEDP21 = -1
+#    FILLEDP22 = -2
+#
+#    for i in range(len(board[0])):
+#        if ((i + 1) % N) != 0:
+#            if board[0][i] != EMPTY and board[0][i + 1] != EMPTY and board[1][contador + acumulador] != EMPTY and board[1][contador + acumulador + 1] != EMPTY:
+#                contadorPuntos = contadorPuntos + 1
+#            acumulador = acumulador + N
+#        else:
+#            contador = contador + 1
+#            acumulador = 0    
+#
+#    for i in range(len(board[0])):
+#        if board[0][i] == FILLEDP12:
+#            player1 = player1 + 2
+#        elif board[0][i] == FILLEDP11:
+#            player1 = player1 + 1
+#        elif board[0][i] == FILLEDP22:
+#            player2 = player2 + 2
+#        elif board[0][i] == FILLEDP21:
+#            player2 = player2 + 1
+#
+#    for j in range(len(board[1])):
+#        if board[1][j] == FILLEDP12:
+#            player1 = player1 + 2
+#        elif board[1][j] == FILLEDP11:
+#            player1 = player1 + 1
+#        elif board[1][j] == FILLEDP22:
+#            player2 = player2 + 2
+#        elif board[1][j] == FILLEDP21:
+#            player2 = player2 + 1
+#
+#    return contadorPuntos
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#def minimax(board, depth, maximizingPlayer, Player_ID, alpha, beta, acumulativePoints):
+#    #scores = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6]
+#    #Exit Condition
+#    keepGoing = True
+#    #print("DEPTH:  ", depth)
+#    if (depth == infoGame.maxDepth):
+#        score = validating_point_method(board)
+#        if(score>0):
+#            print("ANOTE   ", score)
+#        #acumulativePoints = acumulativePoints + score
+#        #print("ACUMULATIVE:   ", acumulativePoints, "   RECENT SCORE:    ", score)
+#        keepGoing = False
+#        return acumulativePoints
+#
+#    #New board to check results
+#    Changedboard = list(map(list,board))
+#    isScoring = False
+#
+#    if (Player_ID == 1):
+#        multiplyingFactor = 1
+#    elif (Player_ID == 2):
+#        #If player No. 2 as the values are negative
+#        #We multiply -1 so negatives becomes positive for minimax
+#        #and positives become negatives
+#        multiplyingFactor = -1
+#
+#    if (maximizingPlayer and keepGoing):
+#        print("ENTERING MAXIMAZING")
+#        bestScore = -1000
+#        #Checking every element of the board
+#        for typeOfLine in range(len(board)):      
+#            #line is the actual value of the line  
+#            for line in range(len(board[typeOfLine])):
+#                if (Changedboard[typeOfLine][line] == 99):
+#                    Changedboard, Myscore = move_And_Points(Changedboard, (typeOfLine, line))
+#                    #print("AFTER BOARD: \n", Changedboard)
+#                    #print("POINTS: \n", Myscore)
+#                    Myscore = Myscore * multiplyingFactor
+#                    if (Myscore > 0):
+#                        #print("I FUCKING SCORED AGAIN  ", Myscore)
+#                        Myscore = Myscore + acumulativePoints
+#                        Myscore = minimax(Changedboard, depth + 1, True, Player_ID, alpha, beta, Myscore)
+#                    elif (Myscore <= 0):
+#                        #print("OPONENT FUCKING SCORED    ", Myscore)
+#                        Myscore = acumulativePoints + Myscore
+#                        Myscore = minimax(Changedboard, depth + 1, False, Player_ID, alpha, beta, Myscore)                    
+#                    Changedboard[typeOfLine][line] = 99
+#                    bestScore = max(Myscore, bestScore)
+#                    alpha = max(alpha, Myscore)
+#                    if (beta <= alpha):
+#                        break
+#        return bestScore
+#                    
+#    elif (maximizingPlayer != True and keepGoing):
+#        print("ENTERING MINIMAZING")
+#        bestScore = 1000
+#        #Checking every element of the board
+#        for typeOfLine in range(len(Changedboard)):      
+#            #line is the actual value of the line  
+#            for line in range(len(Changedboard[typeOfLine])):
+#                if (Changedboard[typeOfLine][line] == 99):
+#                    Changedboard, Myscore = move_And_Points(board, (typeOfLine, line))
+#                    #Change TOTALPOINT NO LONGER EXISTS
+#                    Opscore = totalPoint(board, Changedboard) * multiplyingFactor
+#                    #print(Opscore)
+#                    if (Opscore < 0):
+#                        Opscore = acumulativePoints + Opscore
+#                        Opscore = minimax(Changedboard, depth + 1, False, Player_ID, alpha, beta, Opscore)
+#                    else:
+#                        Opscore = Opscore + acumulativePoints
+#                        Opscore = minimax(Changedboard, depth + 1, True, Player_ID, alpha, beta, Opscore)
+#                    Changedboard[typeOfLine][line] = 99
+#                    bestScore = min(Opscore, bestScore)
+#                    beta = min(beta, Opscore)
+#                    if (beta <= alpha):
+#                        break
+#        return bestScore
 
 
 
@@ -387,8 +984,66 @@ def minimax(board, depth, maximizingPlayer, Player_ID, alpha, beta):
 #
 #
 
+
+
+#def draw_board(board):
+#    standard_board = [
+#        ['.', '.', '.', '.', '.', '.'],
+#        [' ', ' ', ' ', ' ', ' ', ' '],
+#        ['.', '.', '.', '.', '.', '.'],
+#        [' ', ' ', ' ', ' ', ' ', ' '],
+#        ['.', '.', '.', '.', '.', '.'],
+#        [' ', ' ', ' ', ' ', ' ', ' '],
+#        ['.', '.', '.', '.', '.', '.'],
+#        [' ', ' ', ' ', ' ', ' ', ' '],
+#        ['.', '.', '.', '.', '.', '.'],
+#        [' ', ' ', ' ', ' ', ' ', ' '],
+#        ['.', '.', '.', '.', '.', '.'],
+#    ]
+#
+#    for i in range(0,len(board)):
+#        if (i==0): 
+#            acumulador = 0   
+#            start = 0
+#            end = len(board[i])      
+#            N = 6
+#            for j in board[i]:
+#                if (j != 99):
+#                    if (((board[i].index(j, start, end)) % N) == 0) & (board[i].index(j, start, end) != 0):
+#                        acumulador +=1
+#                    try:
+#                        standard_board[acumulador*2][(board[i].index(j, start, end)) % N] = '._'
+#                    except:
+#                        pass                    
+#                start += 1
+#        if (i==1):
+#            acumulador = 0   
+#            start = 0
+#            end = len(board[i])      
+#            N = 6
+#            for j in board[i]:
+#                if (j != 99):
+#                    if (((board[i].index(j, start, end)) % N) == 0) & (board[i].index(j, start, end) != 0):
+#                        acumulador +=1
+#                    try:
+#                        standard_board[(acumulador*2)+1][(board[i].index(j, start, end) +1) % N] = '|'
+#                    except:
+#                        pass
+#                start += 1
+#    print(standard_board)
+        
+
+
+
+
+
+
+
 infoGame = infoGame()
-infoGame.username = input("User: \n")
-infoGame.tournament_id = input("Tournament ID: \n")
-host = input("Host address: \n")
+#infoGame.username = input("User: \n")
+#infoGame.tournament_id = input("Tournament ID: \n")
+#host = input("Host address: \n")
+infoGame.username = "GuilleAI"
+infoGame.tournament_id = "7"
+host = "http://localhost:4000"
 sio.connect(host)
